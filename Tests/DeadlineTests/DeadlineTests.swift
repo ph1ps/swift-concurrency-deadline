@@ -1,5 +1,5 @@
 import XCTest
-@testable import swift_concurrency_deadline
+@testable import Deadline
 
 final class swift_concurrency_deadlineTests: XCTestCase {
     func testExample() throws {
