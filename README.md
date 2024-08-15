@@ -7,14 +7,6 @@ As I've previously stated on the [Swift forums](https://forums.swift.org/t/my-ex
 Since this algorithm is not easy to get right and the implementation in [swift-async-algorithms](https://github.com/apple/swift-async-algorithms/pull/215) has been laying around without getting merged for quite some time now, I decided to open-source my implementation.
 
 ## Details
-It will start a `TaskGroup` with two child tasks: your operation and a `Task.sleep(until:tolerance:clock:)`. There are three possible outcomes:
-1. If your operation finishes first, it will simply return the result and cancel the sleeping.
-2. If the sleeping finishes first, it will throw a `DeadlineExceededError` and cancel your operation.
-3. If the parent task was cancelled, it will automatically cancel your operation and the sleeping. The cancellation handling will be inferred from your operation. `CancellationError`s from `Task.sleep(until:tolerance:clock:)` will be ignored.
-
-> [!CAUTION]
-> The operation closure must support cooperative cancellation.
-> Otherwise, `withDeadline(until:tolerance:clock:operation:)` will suspend execution until the operation completes, making the deadline ineffective.
 
 The library comes with two free functions, one with a generic clock. And another one which uses the `ContinuousClock` as default.
 ```swift
@@ -32,12 +24,66 @@ public func withDeadline<T>(
 ) async throws -> T where T: Sendable { ... }
 ```
 
-## Example
-This is just a demonstrative usage of this function. `CBCentralManager.connect(_:)` is a good example, in my opinion, since it does not support timeouts natively.
+This function provides a mechanism for enforcing timeouts on asynchronous operations that lack native deadline support. It creates a `TaskGroup` with two concurrent tasks: the provided operation and a sleep task.
 
-Again, if you try to make something like `CBCentralManager.connect(_:)` asynchronous and use it with `withDeadline(until:tolerance:clock:operation:)` be sure to use `withTaskCancellationHandler(operation:onCancel:)` at some point to opt into cooperative cancellation.
+- Parameters:
+  - `until`: The absolute deadline for the operation to complete.
+  - `tolerance`: The allowed tolerance for the deadline.
+  - `clock`: The clock used for timing the operation.
+  - `operation`: The asynchronous operation to be executed.
+
+- Returns: The result of the operation if it completes before the deadline.
+- Throws: `DeadlineExceededError`, if the operation fails to complete before the deadline and errors thrown by the operation itself.
+
+> [!CAUTION]
+> The operation closure must support cooperative cancellation. Otherwise, the deadline will not be respected.
+
+### Examples
+To fully understand this, let's illustrate the 3 outcomes of this function:
+
+#### Outcome 1
+The operation finishes in time:
 ```swift
-try await withDeadline(until: .now + seconds(5), clock: .continous) {
-  try await cbCentralManager.connect(peripheral)
+let result = try await withDeadline(until: .now + .seconds(5)) {
+  // Simulate long running task
+  try await Task.sleep(for: .seconds(1))
+  return "success"
 }
 ```
+As you'd expect, result will be "success". The same applies when your operation fails in time:
+```swift
+let result = try await withDeadline(until: .now + .seconds(5)) {
+  // Simulate long running task
+  try await Task.sleep(for: .seconds(1))
+  throw CustomError()
+}
+```
+This will throw `CustomError`.
+
+#### Outcome 2
+The operation does not finish in time:
+```swift
+let result = try await withDeadline(until: .now + .seconds(1)) {
+  // Simulate even longer running task
+  try await Task.sleep(for: .seconds(5))
+  return "success"
+}
+```
+This will throw `DeadlineExceededError` because the operation will not finish in time.
+
+#### Outcome 3
+The parent task was cancelled:
+```swift
+let task = Task {
+  do {
+    try await withDeadline(until: .now + .seconds(5)) {
+      try await URLSession.shared.data(from: url)
+    }
+  } catch {
+    print(error)
+  }
+}
+
+task.cancel()
+```
+The print is guaranteed to print `URLError(.cancelled)`.
