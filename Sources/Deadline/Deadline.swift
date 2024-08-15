@@ -9,22 +9,67 @@ public struct DeadlineExceededError: Error { }
 
 /// Race the given operation against a deadline.
 ///
-/// This is a helper that you can use for asynchronous APIs that do not support timeouts/deadlines natively.
-/// It will start a `TaskGroup` with two child tasks: your operation and a `Task.sleep(until:tolerance:clock:)`. There are three possible outcomes:
-/// 1. If your operation finishes first, it will simply return the result and cancel the sleeping.
-/// 2. If the sleeping finishes first, it will throw a `DeadlineExceededError` and cancel your operation.
-/// 3. If the parent task was cancelled, it will automatically cancel your operation and the sleeping. The cancellation handling will be inferred from your operation. `CancellationError`s from `Task.sleep(until:tolerance:clock:)` will be ignored.
-/// - Important: The operation closure must support cooperative cancellation.
-/// Otherwise, `withDeadline(until:tolerance:clock:operation:)` will suspend execution until the operation completes, making the deadline ineffective.
-/// ## Example
-/// This is just a demonstrative usage of this function. `CBCentralManager.connect(_:)` is a good example, in my opinion, since it does not support timeouts natively.
+/// This function provides a mechanism for enforcing timeouts on asynchronous operations that lack native deadline support. It creates a `TaskGroup` with two concurrent tasks: the provided operation and a sleep task.
 ///
-/// Again, if you try to make something like `CBCentralManager.connect(_:)` asynchronous and use it with `withDeadline(until:tolerance:clock:operation:)` be sure to use `withTaskCancellationHandler(operation:onCancel:)` at some point to opt into cooperative cancellation.
+/// - Parameters:
+///   - until: The absolute deadline for the operation to complete.
+///   - tolerance: The allowed tolerance for the deadline.
+///   - clock: The clock used for timing the operation.
+///   - operation: The asynchronous operation to be executed.
+///
+/// - Returns: The result of the operation if it completes before the deadline.
+/// - Throws: `DeadlineExceededError`, if the operation fails to complete before the deadline and errors thrown by the operation itself.
+///
+/// ## Examples
+/// To fully understand this, let's illustrate the 3 outcomes of this function:
+///
+/// ### Outcome 1
+/// The operation finishes in time:
 /// ```swift
-/// try await withDeadline(until: .now + seconds(5), clock: .continous) {
-///   try await cbCentralManager.connect(peripheral)
+/// let result = try await withDeadline(until: .now + .seconds(5)) {
+///   // Simulate long running task
+///   try await Task.sleep(for: .seconds(1))
+///   return "success"
 /// }
 /// ```
+/// As you'd expect, result will be "success". The same applies when your operation fails in time:
+/// ```swift
+/// let result = try await withDeadline(until: .now + .seconds(5)) {
+///   // Simulate long running task
+///   try await Task.sleep(for: .seconds(1))
+///   throw CustomError()
+/// }
+/// ```
+/// This will throw `CustomError`.
+///
+/// ## Outcome 2
+/// The operation does not finish in time:
+/// ```swift
+/// let result = try await withDeadline(until: .now + .seconds(1)) {
+///   // Simulate even longer running task
+///   try await Task.sleep(for: .seconds(5))
+///   return "success"
+/// }
+/// ```
+/// This will throw `DeadlineExceededError` because the operation will not finish in time.
+///
+/// ## Outcome 3
+/// The parent task was cancelled:
+/// ```swift
+/// let task = Task {
+///   do {
+///     try await withDeadline(until: .now + .seconds(5)) {
+///       try await URLSession.shared.data(from: url)
+///     }
+///   } catch {
+///     print(error)
+///   }
+/// }
+///
+/// task.cancel()
+/// ```
+/// The print is guaranteed to print `URLError(.cancelled)`.
+/// - Important: The operation closure must support cooperative cancellation. Otherwise, the deadline will not be respected.
 public func withDeadline<C, T>(
   until instant: C.Instant,
   tolerance: C.Instant.Duration? = nil,
@@ -54,21 +99,16 @@ public func withDeadline<C, T>(
       }
     }
     
-    // Make sure to cancel the remaining child task.
     defer {
       taskGroup.cancelAll()
     }
     
     for await next in taskGroup {
       switch next {
-      // This indicates that the operation did complete. We can safely return the result.
       case let .result(result):
         return result
-      // This indicates that the operation did not complete in time. We will throw `DeadlineExceededError`.
       case .deadlineExceeded:
         return .failure(DeadlineExceededError())
-      // This indicates that the sleep child task was the first to return.
-      // However we want to keep the cancellation handling of the operation. Therefore we will skip this iteration and wait for the operation child tasks result.
       case .sleepWasCancelled:
         continue
       }
@@ -82,22 +122,67 @@ public func withDeadline<C, T>(
 
 /// Race the given operation against a deadline.
 ///
-/// This is a helper that you can use for asynchronous APIs that do not support timeouts/deadlines natively.
-/// It will start a `TaskGroup` with two child tasks: your operation and a `Task.sleep(until:tolerance:clock:)`. There are three possible outcomes:
-/// 1. If your operation finishes first, it will simply return the result and cancel the sleeping.
-/// 2. If the sleeping finishes first, it will throw a `DeadlineExceededError` and cancel your operation.
-/// 3. If the parent task was cancelled, it will automatically cancel your operation and the sleeping. The cancellation handling will be inferred from your operation. `CancellationError`s from `Task.sleep(until:tolerance:clock:)` will be ignored.
-/// - Important: The operation closure must support cooperative cancellation.
-/// Otherwise, `withDeadline(until:tolerance:operation:)` will suspend execution until the operation completes, making the deadline ineffective.
-/// ## Example
-/// This is just a demonstrative usage of this function. `CBCentralManager.connect(_:)` is a good example, in my opinion, since it does not support timeouts natively.
+/// This function provides a mechanism for enforcing timeouts on asynchronous operations that lack native deadline support. It creates a `TaskGroup` with two concurrent tasks: the provided operation and a sleep task.
+/// `ContinuousClock` will be used as the default clock.
 ///
-/// Again, if you try to make something like `CBCentralManager.connect(_:)` asynchronous and use it with `withDeadline(until:tolerance:operation:)` be sure to use `withTaskCancellationHandler(operation:onCancel:)` at some point to opt into cooperative cancellation.
+/// - Parameters:
+///   - until: The absolute deadline for the operation to complete.
+///   - tolerance: The allowed tolerance for the deadline.
+///   - operation: The asynchronous operation to be executed.
+///
+/// - Returns: The result of the operation if it completes before the deadline.
+/// - Throws: `DeadlineExceededError`, if the operation fails to complete before the deadline and errors thrown by the operation itself.
+///
+/// ## Examples
+/// To fully understand this, let's illustrate the 3 outcomes of this function:
+///
+/// ### Outcome 1
+/// The operation finishes in time:
 /// ```swift
-/// try await withDeadline(until: .now + seconds(5), clock: .continous) {
-///   try await cbCentralManager.connect(peripheral)
+/// let result = try await withDeadline(until: .now + .seconds(5)) {
+///   // Simulate long running task
+///   try await Task.sleep(for: .seconds(1))
+///   return "success"
 /// }
 /// ```
+/// As you'd expect, result will be "success". The same applies when your operation fails in time:
+/// ```swift
+/// let result = try await withDeadline(until: .now + .seconds(5)) {
+///   // Simulate long running task
+///   try await Task.sleep(for: .seconds(1))
+///   throw CustomError()
+/// }
+/// ```
+/// This will throw `CustomError`.
+///
+/// ## Outcome 2
+/// The operation does not finish in time:
+/// ```swift
+/// let result = try await withDeadline(until: .now + .seconds(1)) {
+///   // Simulate even longer running task
+///   try await Task.sleep(for: .seconds(5))
+///   return "success"
+/// }
+/// ```
+/// This will throw `DeadlineExceededError` because the operation will not finish in time.
+///
+/// ## Outcome 3
+/// The parent task was cancelled:
+/// ```swift
+/// let task = Task {
+///   do {
+///     try await withDeadline(until: .now + .seconds(5)) {
+///       try await URLSession.shared.data(from: url)
+///     }
+///   } catch {
+///     print(error)
+///   }
+/// }
+///
+/// task.cancel()
+/// ```
+/// The print is guaranteed to print `URLError(.cancelled)`.
+/// - Important: The operation closure must support cooperative cancellation. Otherwise, the deadline will not be respected.
 public func withDeadline<T>(
   until instant: ContinuousClock.Instant,
   tolerance: ContinuousClock.Instant.Duration? = nil,

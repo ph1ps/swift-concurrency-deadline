@@ -8,6 +8,9 @@ let package = Package(
   products: [
     .library(name: "Deadline", targets: ["Deadline"]),
   ],
+  dependencies: [
+    .package(url: "https://github.com/pointfreeco/swift-clocks", from: "1.0.0")
+  ],
   targets: [
     .target(
       name: "Deadline",
@@ -15,7 +18,10 @@ let package = Package(
     ),
     .testTarget(
       name: "DeadlineTests",
-      dependencies: ["Deadline"],
+      dependencies: [
+        "Deadline",
+        .product(name: "Clocks", package: "swift-clocks")
+      ],
       swiftSettings: [.enableUpcomingFeature("StrictConcurrency")]
     ),
   ]
