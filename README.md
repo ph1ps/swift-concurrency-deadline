@@ -1,6 +1,9 @@
 # Deadline
 A deadline algorithm for Swift Concurrency.
 
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fph1ps%2Fswift-concurrency-deadline%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/ph1ps/swift-concurrency-deadline)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fph1ps%2Fswift-concurrency-deadline%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/ph1ps/swift-concurrency-deadline)
+
 ## Rationale
 As I've previously stated on the [Swift forums](https://forums.swift.org/t/my-experience-with-concurrency/73197): in my opinion deadlines or timeouts are a missing piece in Swift's Concurrency system. 
 
