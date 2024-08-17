@@ -1,4 +1,4 @@
-enum DeadlineState<T> {
+enum DeadlineState<T>: Sendable where T: Sendable {
   case result(Result<T, any Error>)
   case sleepWasCancelled
   case deadlineExceeded

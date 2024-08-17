@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 
 import PackageDescription
 
@@ -14,15 +14,14 @@ let package = Package(
   targets: [
     .target(
       name: "Deadline",
-      swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
     ),
     .testTarget(
       name: "DeadlineTests",
       dependencies: [
         "Deadline",
         .product(name: "Clocks", package: "swift-clocks")
-      ],
-      swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
-    ),
-  ]
+      ]
+    )
+  ],
+  swiftLanguageModes: [.v6]
 )
