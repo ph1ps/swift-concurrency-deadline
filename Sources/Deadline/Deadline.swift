@@ -70,51 +70,54 @@ public struct DeadlineExceededError: Error { }
 /// ```
 /// The print is guaranteed to print `URLError(.cancelled)`.
 /// - Important: The operation closure must support cooperative cancellation. Otherwise, the deadline will not be respected.
-public func withDeadline<C, T>(
+public func withDeadline<C, R>(
   until instant: C.Instant,
   tolerance: C.Instant.Duration? = nil,
   clock: C,
-  operation: @escaping @Sendable () async throws -> T
-) async throws -> T where C: Clock, T: Sendable {
+  operation: @Sendable () async throws -> R
+) async throws -> R where C: Clock, R: Sendable {
   
-  let result = await withTaskGroup(
-    of: DeadlineState<T>.self,
-    returning: Result<T, any Error>.self
-  ) { taskGroup in
-    
-    taskGroup.addTask {
-      do {
-        return try await .result(.success(operation()))
-      } catch {
-        return .result(.failure(error))
+  // NB: This is safe to use, because the closure will not escape the context of this function.
+  let result = await withoutActuallyEscaping(operation) { operation in
+    await withTaskGroup(
+      of: DeadlineState<R>.self,
+      returning: Result<R, any Error>.self
+    ) { taskGroup in
+      
+      taskGroup.addTask {
+        do {
+          return try await .result(.success(operation()))
+        } catch {
+          return .result(.failure(error))
+        }
       }
-    }
-    
-    taskGroup.addTask {
-      do {
-        try await Task.sleep(until: instant, tolerance: tolerance, clock: clock)
-        return .deadlineExceeded
-      } catch {
-        return .sleepWasCancelled
+      
+      taskGroup.addTask {
+        do {
+          try await Task.sleep(until: instant, tolerance: tolerance, clock: clock)
+          return .deadlineExceeded
+        } catch {
+          return .sleepWasCancelled
+        }
       }
-    }
-    
-    defer {
-      taskGroup.cancelAll()
-    }
-    
-    for await next in taskGroup {
-      switch next {
-      case let .result(result):
-        return result
-      case .deadlineExceeded:
-        return .failure(DeadlineExceededError())
-      case .sleepWasCancelled:
-        continue
+      
+      defer {
+        taskGroup.cancelAll()
       }
+      
+      for await next in taskGroup {
+        switch next {
+        case let .result(result):
+          return result
+        case .deadlineExceeded:
+          return .failure(DeadlineExceededError())
+        case .sleepWasCancelled:
+          continue
+        }
+      }
+      
+      preconditionFailure("Invalid state")
     }
-    
-    preconditionFailure("Invalid state")
   }
   
   return try result.get()
@@ -183,10 +186,10 @@ public func withDeadline<C, T>(
 /// ```
 /// The print is guaranteed to print `URLError(.cancelled)`.
 /// - Important: The operation closure must support cooperative cancellation. Otherwise, the deadline will not be respected.
-public func withDeadline<T>(
+public func withDeadline<R>(
   until instant: ContinuousClock.Instant,
   tolerance: ContinuousClock.Instant.Duration? = nil,
-  operation: @escaping @Sendable () async throws -> T
-) async throws -> T where T: Sendable {
+  operation: @Sendable () async throws -> R
+) async throws -> R where R: Sendable {
   try await withDeadline(until: instant, tolerance: tolerance, clock: ContinuousClock(), operation: operation)
 }
