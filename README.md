@@ -13,18 +13,18 @@ Since this algorithm is not easy to get right and the implementation in [swift-a
 
 The library comes with two free functions, one with a generic clock. And another one which uses the `ContinuousClock` as default.
 ```swift
-public func withDeadline<C, T>(
+public func withDeadline<C, R>(
   until instant: C.Instant,
   tolerance: C.Instant.Duration? = nil,
   clock: C,
-  operation: @escaping @Sendable () async throws -> T
-) async throws -> T where C: Clock, T: Sendable { ... }
+  operation: @Sendable () async throws -> R
+) async throws -> R where C: Clock, R: Sendable { ... }
 
-public func withDeadline<T>(
+public func withDeadline<R>(
   until instant: ContinuousClock.Instant,
   tolerance: ContinuousClock.Instant.Duration? = nil,
-  operation: @escaping @Sendable () async throws -> T
-) async throws -> T where T: Sendable { ... }
+  operation: @Sendable () async throws -> R
+) async throws -> R where R: Sendable { ... }
 ```
 
 This function provides a mechanism for enforcing timeouts on asynchronous operations that lack native deadline support. It creates a `TaskGroup` with two concurrent tasks: the provided operation and a sleep task.
