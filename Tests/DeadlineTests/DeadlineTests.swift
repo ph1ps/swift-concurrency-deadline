@@ -4,7 +4,7 @@ import XCTest
 
 final class DeadlineTests: XCTestCase {
   
-  func test_InTime() async {
+  func testInTime() async {
     
     let testClock = TestClock()
     let task = Task {
@@ -21,7 +21,7 @@ final class DeadlineTests: XCTestCase {
     }
   }
   
-  func test_Deadline() async {
+  func testDeadline() async {
     
     let testClock = TestClock()
     let task = Task {
@@ -41,7 +41,7 @@ final class DeadlineTests: XCTestCase {
     }
   }
   
-  func test_Cancellation() async {
+  func testCancellation() async {
     
     struct CustomError: Error { }
     
@@ -69,7 +69,7 @@ final class DeadlineTests: XCTestCase {
     }
   }
   
-  func test_EarlyCancellation() async {
+  func testEarlyCancellation() async {
     
     struct CustomError: Error { }
     
@@ -94,20 +94,5 @@ final class DeadlineTests: XCTestCase {
     } catch {
       XCTFail()
     }
-  }
-  
-  func testAbc() async {
-    let task = Task {
-      do {
-        _ = try await withDeadline(until: .now + .seconds(5)) {
-          try await URLSession.shared.data(from: URL(string: "google.com")!)
-        }
-      } catch {
-        print(error)
-      }
-    }
-    
-    task.cancel()
-    await task.value
   }
 }
