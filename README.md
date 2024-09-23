@@ -97,4 +97,4 @@ The print is guaranteed to print `URLError(.cancelled)`.
 - Use `sending` instead of `@Sendable` for region based isolation support.
   - Blocked by: https://github.com/swiftlang/swift/issues/76242
 - Use `@isolated(any)` for synchronous task enqueueing support.
-  - Discussion here: https://forums.swift.org/t/withoutactuallyescaping-and-isolated-any/74748
+  - Blocked by: https://github.com/swiftlang/swift/issues/76604
