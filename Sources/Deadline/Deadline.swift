@@ -1,7 +1,6 @@
 enum DeadlineState<T>: Sendable where T: Sendable {
-  case result(Result<T, any Error>)
-  case sleepWasCancelled
-  case deadlineExceeded
+  case operationResult(Result<T, Error>)
+  case sleepResult(Result<Void, Error>)
 }
 
 /// An error indicating that the deadline has passed and the operation did not complete.
@@ -18,7 +17,7 @@ public struct DeadlineExceededError: Error { }
 ///   - operation: The asynchronous operation to be executed.
 ///
 /// - Returns: The result of the operation if it completes before the deadline.
-/// - Throws: `DeadlineExceededError`, if the operation fails to complete before the deadline and errors thrown by the operation itself.
+/// - Throws: `DeadlineExceededError`, if the operation fails to complete before the deadline and errors thrown by the operation or clock.
 ///
 /// ## Examples
 /// To fully understand this, let's illustrate the 3 outcomes of this function:
@@ -86,18 +85,19 @@ public func withDeadline<C, R>(
       
       taskGroup.addTask {
         do {
-          return try await .result(.success(operation()))
+          let result = try await operation()
+          return .operationResult(.success(result))
         } catch {
-          return .result(.failure(error))
+          return .operationResult(.failure(error))
         }
       }
       
       taskGroup.addTask {
         do {
           try await Task.sleep(until: instant, tolerance: tolerance, clock: clock)
-          return .deadlineExceeded
+          return .sleepResult(.success(()))
         } catch {
-          return .sleepWasCancelled
+          return .sleepResult(.failure(error))
         }
       }
       
@@ -107,12 +107,14 @@ public func withDeadline<C, R>(
       
       for await next in taskGroup {
         switch next {
-        case let .result(result):
+        case .operationResult(let result):
           return result
-        case .deadlineExceeded:
+        case .sleepResult(.success):
           return .failure(DeadlineExceededError())
-        case .sleepWasCancelled:
+        case .sleepResult(.failure(let error)) where error is CancellationError:
           continue
+        case .sleepResult(.failure(let error)):
+          return .failure(error)
         }
       }
       
@@ -134,7 +136,7 @@ public func withDeadline<C, R>(
 ///   - operation: The asynchronous operation to be executed.
 ///
 /// - Returns: The result of the operation if it completes before the deadline.
-/// - Throws: `DeadlineExceededError`, if the operation fails to complete before the deadline and errors thrown by the operation itself.
+/// - Throws: `DeadlineExceededError`, if the operation fails to complete before the deadline and errors thrown by the operation or clock.
 ///
 /// ## Examples
 /// To fully understand this, let's illustrate the 3 outcomes of this function:
