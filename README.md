@@ -36,7 +36,7 @@ This function provides a mechanism for enforcing timeouts on asynchronous operat
   - `operation`: The asynchronous operation to be executed.
 
 - Returns: The result of the operation if it completes before the deadline.
-- Throws: `DeadlineExceededError`, if the operation fails to complete before the deadline and errors thrown by the operation itself.
+- Throws: `DeadlineExceededError`, if the operation fails to complete before the deadline and errors thrown by the operation or clock.
 
 > [!CAUTION]
 > The operation closure must support cooperative cancellation. Otherwise, the deadline will not be respected.
