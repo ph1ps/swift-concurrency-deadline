@@ -14,11 +14,9 @@ final class DeadlineTests: XCTestCase {
     }
     
     await testClock.advance(by: .milliseconds(200))
-    do {
-      try await task.value
-    } catch {
-      XCTFail()
-    }
+    
+    let result = await task.result
+    XCTAssertNoThrow(try result.get())
   }
   
   func testDeadline() async {
@@ -31,13 +29,10 @@ final class DeadlineTests: XCTestCase {
     }
     
     await testClock.advance(by: .milliseconds(200))
-    do {
-      try await task.value
-      XCTFail()
-    } catch is DeadlineExceededError {
-      // expected
-    } catch {
-      XCTFail()
+    
+    let result = await task.result
+    XCTAssertThrowsError(try result.get()) { error in
+      XCTAssertTrue(error is DeadlineExceededError)
     }
   }
   
@@ -59,13 +54,9 @@ final class DeadlineTests: XCTestCase {
     await testClock.advance(by: .milliseconds(50))
     task.cancel()
     
-    do {
-      try await task.value
-      XCTFail()
-    } catch is CustomError {
-      // expected
-    } catch {
-      XCTFail()
+    let result = await task.result
+    XCTAssertThrowsError(try result.get()) { error in
+      XCTAssertTrue(error is CustomError)
     }
   }
   
@@ -86,13 +77,32 @@ final class DeadlineTests: XCTestCase {
     
     task.cancel()
     
-    do {
-      try await task.value
-      XCTFail()
-    } catch is CustomError {
-      // expected
-    } catch {
-      XCTFail()
+    let result = await task.result
+    XCTAssertThrowsError(try result.get()) { error in
+      XCTAssertTrue(error is CustomError)
+    }
+  }
+  
+  func testFailingClock() async {
+    
+    struct CustomError: Error { }
+    struct CustomClock: Clock {
+      let _internal = TestClock()
+      var now: TestClock<Duration>.Instant { _internal.now }
+      var minimumResolution: TestClock<Duration>.Duration { _internal.minimumResolution }
+      func sleep(until deadline: Instant, tolerance: Duration? = nil) async throws { throw CustomError() }
+    }
+    
+    let customClock = CustomClock()
+    let task = Task {
+      try await withDeadline(until: .init(offset: .milliseconds(200)), clock: customClock) {
+        try await customClock.sleep(until: .init(offset: .milliseconds(100)))
+      }
+    }
+    
+    let result = await task.result
+    XCTAssertThrowsError(try result.get()) { error in
+      XCTAssertTrue(error is CustomError)
     }
   }
 }
