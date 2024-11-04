@@ -73,6 +73,7 @@ public func withDeadline<C, R>(
   until instant: C.Instant,
   tolerance: C.Instant.Duration? = nil,
   clock: C,
+  isolation: isolated (any Actor)? = #isolation,
   operation: @Sendable () async throws -> R
 ) async throws -> R where C: Clock, R: Sendable {
   
@@ -80,7 +81,8 @@ public func withDeadline<C, R>(
   let result = await withoutActuallyEscaping(operation) { operation in
     await withTaskGroup(
       of: DeadlineState<R>.self,
-      returning: Result<R, any Error>.self
+      returning: Result<R, any Error>.self,
+      isolation: isolation
     ) { taskGroup in
       
       taskGroup.addTask {
@@ -191,7 +193,8 @@ public func withDeadline<C, R>(
 public func withDeadline<R>(
   until instant: ContinuousClock.Instant,
   tolerance: ContinuousClock.Instant.Duration? = nil,
+  isolation: isolated (any Actor)? = #isolation,
   operation: @Sendable () async throws -> R
 ) async throws -> R where R: Sendable {
-  try await withDeadline(until: instant, tolerance: tolerance, clock: ContinuousClock(), operation: operation)
+  try await withDeadline(until: instant, tolerance: tolerance, clock: ContinuousClock(), isolation: isolation, operation: operation)
 }
