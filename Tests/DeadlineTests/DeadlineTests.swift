@@ -81,16 +81,16 @@ import Testing
   
   struct CustomError: Error { }
   struct CustomClock: Clock {
-    let _internal = TestClock()
-    var now: TestClock<Duration>.Instant { _internal.now }
-    var minimumResolution: TestClock<Duration>.Duration { _internal.minimumResolution }
+    var now: ContinuousClock.Instant { fatalError() }
+    var minimumResolution: ContinuousClock.Duration { fatalError() }
     func sleep(until deadline: Instant, tolerance: Duration? = nil) async throws { throw CustomError() }
   }
   
   let customClock = CustomClock()
+  let testClock = TestClock()
   let task = Task {
-    try await deadline(until: .init(offset: .milliseconds(200)), clock: customClock) {
-      try await customClock.sleep(until: .init(offset: .milliseconds(100)))
+    try await deadline(until: .now.advanced(by: .milliseconds(200)), clock: customClock) {
+      try await testClock.sleep(until: .init(offset: .milliseconds(100)))
     }
   }
   
