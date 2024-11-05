@@ -21,6 +21,6 @@ let package = Package(
         "Deadline",
         .product(name: "Clocks", package: "swift-clocks")
       ]
-    ),
+    )
   ]
 )

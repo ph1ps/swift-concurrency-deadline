@@ -23,6 +23,6 @@ let package = Package(
         .product(name: "Clocks", package: "swift-clocks")
       ],
       swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
-    ),
+    )
   ]
 )
