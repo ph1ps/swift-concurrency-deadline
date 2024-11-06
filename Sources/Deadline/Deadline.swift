@@ -276,7 +276,7 @@ public func deadline<C, R>(
   let result = await withoutActuallyEscaping(operation) { operation in
     await withTaskGroup(
       of: DeadlineState<R>.self,
-      returning: Result<R, any Error>.self,
+      returning: Result<R, any Error>.self
     ) { taskGroup in
       
       taskGroup.addTask {
