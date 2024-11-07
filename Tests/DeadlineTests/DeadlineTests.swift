@@ -1,3 +1,4 @@
+#if canImport(Testing)
 import Clocks
 import Deadline
 import Testing
@@ -98,3 +99,4 @@ import Testing
     try await task.value
   }
 }
+#endif
