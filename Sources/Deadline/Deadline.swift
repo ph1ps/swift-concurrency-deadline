@@ -1,6 +1,6 @@
 enum DeadlineState<T>: Sendable where T: Sendable {
   case operationResult(Result<T, Error>)
-  case sleepResult(Result<Void, Error>)
+  case sleepResult(Result<Bool, Error>)
 }
 
 /// An error indicating that the deadline has passed and the operation did not complete.
@@ -99,7 +99,9 @@ public func deadline<C, R>(
       taskGroup.addTask {
         do {
           try await Task.sleep(until: instant, tolerance: tolerance, clock: clock)
-          return .sleepResult(.success(()))
+          return .sleepResult(.success(false))
+        } catch where Task.isCancelled {
+          return .sleepResult(.success(true))
         } catch {
           return .sleepResult(.failure(error))
         }
@@ -113,9 +115,9 @@ public func deadline<C, R>(
         switch next {
         case .operationResult(let result):
           return result
-        case .sleepResult(.success):
+        case .sleepResult(.success(false)):
           return .failure(DeadlineExceededError())
-        case .sleepResult(.failure(let error)) where error is CancellationError:
+        case .sleepResult(.success(true)):
           continue
         case .sleepResult(.failure(let error)):
           return .failure(error)
@@ -291,7 +293,9 @@ public func deadline<C, R>(
       taskGroup.addTask {
         do {
           try await Task.sleep(until: instant, tolerance: tolerance, clock: clock)
-          return .sleepResult(.success(()))
+          return .sleepResult(.success(false))
+        } catch where Task.isCancelled {
+          return .sleepResult(.success(true))
         } catch {
           return .sleepResult(.failure(error))
         }
@@ -305,9 +309,9 @@ public func deadline<C, R>(
         switch next {
         case .operationResult(let result):
           return result
-        case .sleepResult(.success):
+        case .sleepResult(.success(false)):
           return .failure(DeadlineExceededError())
-        case .sleepResult(.failure(let error)) where error is CancellationError:
+        case .sleepResult(.success(true)):
           continue
         case .sleepResult(.failure(let error)):
           return .failure(error)
