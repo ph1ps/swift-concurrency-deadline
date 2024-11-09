@@ -9,7 +9,7 @@ As I've previously stated on the [Swift forums](https://forums.swift.org/t/my-ex
 
 ## Details
 
-The library comes with two free functions, one with a generic clock. And another one which uses the `ContinuousClock` as default.
+The library comes with two free functions, one with a generic clock and another one which uses the `ContinuousClock` as default.
 ```swift
 public func deadline<C, R>(
   until instant: C.Instant,
