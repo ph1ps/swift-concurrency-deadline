@@ -95,7 +95,5 @@ The print is guaranteed to print `URLError(.cancelled)`.
 ## Improvements
 - Only have one free function with a default expression of `ContinuousClock` for the `clock` parameter.
   - Blocked by: https://github.com/swiftlang/swift/issues/72199
-- Use `sending` instead of `@Sendable` for region based isolation support.
-  - Blocked by: https://github.com/swiftlang/swift/issues/76242
 - Use `@isolated(any)` for synchronous task enqueueing support.
   - Blocked by: https://github.com/swiftlang/swift/issues/76604
