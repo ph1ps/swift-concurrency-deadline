@@ -26,7 +26,7 @@ import Foundation
 
 final class TestClock<Duration: DurationProtocol & Hashable>: Clock, @unchecked Sendable {
   struct Instant: InstantProtocol {
-    fileprivate let offset: Duration
+    let offset: Duration
     
     init(offset: Duration = .zero) {
       self.offset = offset
@@ -46,10 +46,10 @@ final class TestClock<Duration: DurationProtocol & Hashable>: Clock, @unchecked 
   }
   
   var minimumResolution: Duration = .zero
-  private(set) var now: Instant
+  var now: Instant
   
-  private let lock = NSRecursiveLock()
-  private var suspensions:
+  let lock = NSRecursiveLock()
+  var suspensions:
   [(
     id: UUID,
     deadline: Instant,
