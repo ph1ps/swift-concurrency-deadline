@@ -1,5 +1,4 @@
 // swift-tools-version: 6.0
-
 import PackageDescription
 
 let package = Package(
@@ -8,20 +7,13 @@ let package = Package(
   products: [
     .library(name: "Deadline", targets: ["Deadline"]),
   ],
-  dependencies: [
-    .package(url: "https://github.com/pointfreeco/swift-clocks", from: "1.0.0")
-  ],
   targets: [
     .target(
       name: "Deadline"
     ),
     .testTarget(
       name: "DeadlineTests",
-      dependencies: [
-        "Deadline",
-        .product(name: "Clocks", package: "swift-clocks")
-      ]
+      dependencies: ["Deadline"]
     )
-  ],
-  swiftLanguageModes: [.v6]
+  ]
 )
