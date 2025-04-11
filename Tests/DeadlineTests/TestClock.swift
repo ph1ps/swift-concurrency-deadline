@@ -85,46 +85,16 @@ final class TestClock<Duration: DurationProtocol & Hashable>: Clock, @unchecked 
     }
   }
   
-  /// Throws an error if there are active sleeps on the clock.
-  ///
-  /// This can be useful for proving that your feature will not perform any more time-based
-  /// asynchrony. For example, the following will throw because the clock has an active suspension
-  /// scheduled:
-  ///
-  /// ```swift
-  /// let clock = TestClock()
-  /// Task {
-  ///   try await clock.sleep(for: .seconds(1))
-  /// }
-  /// try await clock.checkSuspension()
-  /// ```
-  ///
-  /// However, the following will not throw because advancing the clock has finished the suspension:
-  ///
-  /// ```swift
-  /// let clock = TestClock()
-  /// Task {
-  ///   try await clock.sleep(for: .seconds(1))
-  /// }
-  /// await clock.advance(for: .seconds(1))
-  /// try await clock.checkSuspension()
-  /// ```
   func checkSuspension() async throws {
     await Task.megaYield()
     guard self.lock.sync(operation: { self.suspensions.isEmpty })
     else { throw SuspensionError() }
   }
   
-  /// Advances the test clock's internal time by the duration.
-  ///
-  /// See the documentation for ``TestClock`` to see how to use this method.
   func advance(by duration: Duration = .zero) async {
     await self.advance(to: self.lock.sync(operation: { self.now.advanced(by: duration) }))
   }
   
-  /// Advances the test clock's internal time to the deadline.
-  ///
-  /// See the documentation for ``TestClock`` to see how to use this method.
   func advance(to deadline: Instant) async {
     while self.lock.sync(operation: { self.now <= deadline }) {
       await Task.megaYield()
@@ -156,33 +126,6 @@ final class TestClock<Duration: DurationProtocol & Hashable>: Clock, @unchecked 
     await Task.megaYield()
   }
   
-  /// Runs the clock until it has no scheduled sleeps left.
-  ///
-  /// This method is useful for letting a clock run to its end without having to explicitly account
-  /// for each sleep. For example, suppose you have a feature that runs a timer for 10 ticks, and
-  /// each tick it increments a counter. If you don't want to worry about advancing the timer for
-  /// each tick, you can instead just `run` the clock out:
-  ///
-  /// ```swift
-  /// func testTimer() async {
-  ///   let clock = TestClock()
-  ///   let model = FeatureModel(clock: clock)
-  ///
-  ///   XCTAssertEqual(model.count, 0)
-  ///   model.startTimerButtonTapped()
-  ///
-  ///   await clock.run()
-  ///   XCTAssertEqual(model.count, 10)
-  /// }
-  /// ```
-  ///
-  /// It is possible to run a clock that never finishes, hence causing a suspension that never
-  /// finishes. This can happen if you create an unbounded timer. In order to prevent holding up
-  /// your test suite forever, the ``run(timeout:file:line:)`` method will terminate and cause a
-  /// test failure if a timeout duration is reached.
-  ///
-  /// - Parameters:
-  ///   - duration: The amount of time to allow for all work on the clock to finish.
   func run(
     timeout duration: Swift.Duration = .milliseconds(500),
     fileID: StaticString = #fileID,
@@ -210,26 +153,21 @@ final class TestClock<Duration: DurationProtocol & Hashable>: Clock, @unchecked 
         group.cancelAll()
       }
     } catch {
-      let comment = Comment(rawValue:
-          """
-          Expected all sleeps to finish, but some are still suspending after \(duration).
-          
-          There are sleeps suspending. This could mean you are not advancing the test clock far \
-          enough for your feature to execute its logic, or there could be a bug in your feature's \
-          logic.
-          
-          You can also increase the timeout of 'run' to be greater than \(duration).
-          """
+      Issue.record(
+        """
+        Expected all sleeps to finish, but some are still suspending after \(duration).
+        
+        There are sleeps suspending. This could mean you are not advancing the test clock far \
+        enough for your feature to execute its logic, or there could be a bug in your feature's \
+        logic.
+        
+        You can also increase the timeout of 'run' to be greater than \(duration).
+        """
       )
-      Issue.record(comment)
     }
   }
 }
 
-/// An error that indicates there are actively suspending sleeps scheduled on the clock.
-///
-/// This error is thrown automatically by ``TestClock/checkSuspension()`` if there are actively
-/// suspending sleeps scheduled on the clock.
 struct SuspensionError: Error {}
 
 extension Task where Success == Never, Failure == Never {
